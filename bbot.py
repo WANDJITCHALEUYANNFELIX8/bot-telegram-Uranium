@@ -29,9 +29,9 @@ METEO_API=os.getenv("METEO_API0")
 ADMIN_ID=os.getenv("ADMIN_ID0")
 GEMINI_API_KEY=os.getenv("GEMINI_API_KEY0")
 YOUTUBE_API_KEY=os.getenv("YOUTUBE_API_KEY0")
+TOKEN=os.getenv("TOKEN0")
 USERS_FILE = "users0.json"
-TOKEN =os.getenv("TOKEN0")
-
+print("Token:", TOKEN)
 users0 = {}
 if os.path.exists(USERS_FILE):
     with open(USERS_FILE, "r") as f:

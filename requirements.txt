@@ -1,2 +1,6 @@
 python-telegram-bot==20.3
-pip install dotenv
+python-dotenv
+python-telegram.ext
+openai
+google-genai
+
