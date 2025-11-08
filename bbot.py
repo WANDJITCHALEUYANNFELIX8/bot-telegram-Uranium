@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 import json
 import openai
 from io import BytesIO
@@ -19,8 +20,10 @@ from google.genai import types
 from googleapiclient.discovery import build
 from textblob import TextBlob
 from deep_translator import GoogleTranslator
-from dotenv import load_dotenv
+
 load_dotenv()
+print("GEMINI_API_KEY =", os.getenv("GEMINI_API_KEY0"))
+print("TOKEN =", os.getenv("TOKEN0"))
 
 NASA_API=os.getenv("NASA_API0")
 HF_API=os.getenv("HF_API0")
@@ -31,7 +34,10 @@ GEMINI_API_KEY=os.getenv("GEMINI_API_KEY0")
 YOUTUBE_API_KEY=os.getenv("YOUTUBE_API_KEY0")
 TOKEN=os.getenv("TOKEN0")
 USERS_FILE = "users0.json"
-print("Token:", TOKEN)
+
+if not TOKEN:
+    raise ValueError("❌ Erreur : TELEGRAM_TOKEN introuvable ! Vérifie .env ou la variable Railway.")
+
 users0 = {}
 if os.path.exists(USERS_FILE):
     with open(USERS_FILE, "r") as f:
