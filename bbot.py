@@ -22,8 +22,6 @@ from textblob import TextBlob
 from deep_translator import GoogleTranslator
 
 load_dotenv()
-print("GEMINI_API_KEY =", os.getenv("GEMINI_API_KEY0"))
-print("TOKEN =", os.getenv("TOKEN0"))
 
 NASA_API=os.getenv("NASA_API0")
 HF_API=os.getenv("HF_API0")
