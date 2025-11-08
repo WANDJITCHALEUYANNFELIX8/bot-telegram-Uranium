@@ -1,11 +1,11 @@
 python-telegram-bot==20.3
 python-dotenv==1.0.1
 requests
+openai
+aiohttp
 google-api-python-client
 goole-genai
 nest-asyncio
-yt-dlp
-ffmpeg-python
 textblob
-python telegram.ext
-deep_translator
+python-telegram.ext
+deep-translator

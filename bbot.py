@@ -257,7 +257,7 @@ async def start(update, context):
     }
     with open(USERS_FILE, "w") as f:
         json.dump(users0, f, indent=4)
-    await update.message.reply_text(f"BRAVO {user.first_name}! Tu as été enregistré dans ma base de données. \nEntre /help pour découvrir mon potentiel.")
+    await update.message.reply_text(f"BRAVO {user.first_name}! Tu as été enregistré dans ma base de données. \nEntre /man pour découvrir mon potentiel.")
 
 async def man(update, context):
     await update.message.reply_text(
