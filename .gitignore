@@ -1,0 +1,42 @@
+# Secrets et variables d'environnement
+.env
+
+# Fichiers Python compilés / caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtualenv / environnements locaux
+venv/
+env/
+.venv/
+.ENV/
+
+# IDE / éditeur
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Systèmes
+.DS_Store
+Thumbs.db
+
+# Logs, sorties et fichiers temporaires
+*.log
+nohup.out
+
+# Fichiers d'OS ou build
+coverage/
+dist/
+build/
+
+# Node (si tu utilises JS pour quelque chose)
+node_modules/
+
+# Ne PAS ignorer (exemples de fichiers à garder dans le repo)
+# Procfile
+# requirements.txt
+# bot.py
+
