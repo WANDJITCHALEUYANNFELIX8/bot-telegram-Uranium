@@ -7,5 +7,4 @@ google-api-python-client
 google-genai
 nest-asyncio
 textblob
-python-telegram.ext
 deep-translator
