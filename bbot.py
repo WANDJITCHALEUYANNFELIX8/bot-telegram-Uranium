@@ -21,7 +21,12 @@ from googleapiclient.discovery import build
 from textblob import TextBlob
 from deep_translator import GoogleTranslator
 
-load_dotenv()
+dotenv_path = os.getenv("DOTENV_PATH", "/home/uranium_yann/learn_python/bbot_telegram/.env")
+if os.path.exists(dotenv_path):
+	load_dotenv(dotenv_path)
+	print(f"💡 Chargement des variables depuis : {dotenv_path}")
+else:
+	print("💡 Aucun fichier .env trouvé, utilisation des variables d'environnement du système.")
 
 NASA_API=os.getenv("NASA_API0")
 HF_API=os.getenv("HF_API0")
