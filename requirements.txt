@@ -4,7 +4,7 @@ requests
 openai
 aiohttp
 google-api-python-client
-goole-genai
+google-genai
 nest-asyncio
 textblob
 python-telegram.ext
