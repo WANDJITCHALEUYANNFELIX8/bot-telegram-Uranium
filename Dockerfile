@@ -10,7 +10,7 @@ COPY . /app
 # Installer les dépendances
 RUN pip install --no-cache-dir --upgrade pip \ && pip install --no-cache-dir -r requirements.txt
 
-COPY .env
+COPY .env .env
 
 # Commande pour lancer le bot
 CMD ["python3", "bbot.py"]
