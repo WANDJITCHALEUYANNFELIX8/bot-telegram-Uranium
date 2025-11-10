@@ -721,6 +721,9 @@ async def astro(update,context):
 # ------------------- Main -------------------
 
 def main():
+	from telegram import Bot
+	bot=Bot(token=TOKEN)
+	bot.delete_webhook()
 	app = Application.builder().token(TOKEN).post_init(signal).build()
 	app.add_handler(CommandHandler("start", start))
 	app.add_handler(CommandHandler("man", man))
