@@ -714,6 +714,7 @@ async def astro(update,context):
 				f"🌑 Aphhelie : {aphelie} km\n"
     
 			)
+			await update.message.reply_text(texte, parse_mode="Markdown")
 		except Exception as e:
 			print(f"Erreur de recuperation des informations de l astre: {e}")
 			await update.message.reply_text("Erreur de recuperation des informations astronomiques.") 
@@ -721,9 +722,9 @@ async def astro(update,context):
 # ------------------- Main -------------------
 
 def main():
-	from telegram import Bot
-	bot=Bot(token=TOKEN)
-	bot.delete_webhook()
+	#from telegram import Bot
+	#bot=Bot(token=TOKEN)
+	#bot.delete_webhook()
 	app = Application.builder().token(TOKEN).post_init(signal).build()
 	app.add_handler(CommandHandler("start", start))
 	app.add_handler(CommandHandler("man", man))
