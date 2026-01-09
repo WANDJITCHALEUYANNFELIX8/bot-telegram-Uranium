@@ -612,113 +612,168 @@ async def convertir(update, context):
 		print(f"Erreur de conversion: {e}")
 		await update.message.reply_text("⚠️ Erreur lors de la conversion. Vérifiez les types de monnaies et le montant.")
 
-async def image(update,context):
+async def image(update, context):
 	if not context.args:
 		await update.message.reply_text("Utilisation: /image description")
 		return
-	prompt=" ".join(context.args)
-	await update.message.reply_text(f"🎨Creation de l'image pour: {prompt}")
+	
+	prompt = " ".join(context.args)
+	await update.message.reply_text(f"🎨 Création de l'image pour : {prompt}")
+	
 	try:
 		lien = "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5"
 		headers = {
 			"Authorization": f"Bearer {HF_API}",
-			"Accept": "application/json"
 		}
 		payload = {
 			"inputs": prompt,
-			"options": {"wait_for_model": True}  # attend que le modèle soit prêt
+			"options": {"wait_for_model": True}
 		}
+		
 		async with aiohttp.ClientSession() as session:
-			async with session.post(lien, headers=headers,json=payload) as response:
+			async with session.post(lien, headers=headers, json=payload) as response:
 				print("Status HTTP:", response.status)
-			
-				print("Réponse JSON:", response.json())
-				text = await response.text()
-				print("Réponse brute:", text[:200])
-				# Vérifie à la fois le code HTTP et la réussite de la requête
-				if response.status != 200:
-					await update.message.reply_text("Impossible de récupérer l image.")
-					return
-				image_byte=response.read()
-				image_buffer=BytesIO(image_byte)
-				image_buffer.name="image.png"
 				
-				await update.message.reply_photo(photo=image_buffer,caption="Voici l'image generer: \n")
-	except Exception as e:
-		print(f"Erreur de creation: {e}")
-		await update.message.reply_text("Erreur de creation. Verifier le prompt ou la cle API.")    	
+				if response.status != 200:
+					error_text = await response.text()
+					print(f"Erreur API: {error_text[:200]}")
+					await update.message.reply_text(
+						"Impossible de générer l'image. "
+						"Vérifiez votre clé API Hugging Face ou réessayez dans quelques instants."
+					)
+					return
+				
+				# Vérifier le type de contenu
+				content_type = response.headers.get('Content-Type', '')
+				
+				if 'application/json' in content_type:
+					# Si c'est du JSON, c'est probablement une erreur
+					error_data = await response.json()
+					print(f"Erreur JSON: {error_data}")
 					
-async def astro(update,context):
+					# Vérifier si le modèle est en cours de chargement
+					if "estimated_time" in str(error_data):
+						await update.message.reply_text(
+							"⏳ Le modèle est en cours de chargement. "
+							"Veuillez réessayer dans 1-2 minutes."
+						)
+					else:
+						await update.message.reply_text(f"Erreur: {error_data}")
+					return
+				
+				# Lire les données de l'image
+				image_bytes = await response.read()
+				
+				# Vérifier que l'image n'est pas vide
+				if len(image_bytes) < 100:
+					await update.message.reply_text("L'image générée semble invalide. Réessayez.")
+					return
+				
+				# Créer un buffer pour l'image
+				image_buffer = BytesIO(image_bytes)
+				image_buffer.name = "image.png"
+				
+				# Envoyer l'image
+				await update.message.reply_photo(
+					photo=image_buffer, 
+					caption=f"🎨 Image générée pour : {prompt}"
+				)
+				
+	except aiohttp.ClientError as e:
+		print(f"Erreur réseau: {e}")
+		await update.message.reply_text("Erreur de connexion à l'API Hugging Face.")
+	except Exception as e:
+		print(f"Erreur de création: {e}")
+		await update.message.reply_text("Erreur lors de la création de l'image. Vérifiez le prompt ou réessayez.")
+async def astro(update, context):
 	if not context.args:
 		try:
-			date_jour=datetime.now().strftime("%Y-%m-%d")
+			date_jour = datetime.now().strftime("%Y-%m-%d")
 			lien = f"https://api.nasa.gov/planetary/apod?api_key={NASA_API}&date={date_jour}"
 			await update.message.reply_text("🔭 Récupération de l'image astronomique du jour...")
+			
 			async with aiohttp.ClientSession() as session:
 				async with session.get(lien) as response:
 					print("Status HTTP:", response.status)
+					
+					if response.status != 200:
+						await update.message.reply_text("Impossible de récupérer l'image.")
+						return
+					
 					data = await response.json()
 					print("Réponse JSON:", data)
-				
-					if response.status != 200:
-						await update.message.reply_text("Impossible de récupérer l image.")
-						return
-			titre=data.get("title","Sans titre")
-			description=data.get("explanation","Pas de description")
-			url=data.get("hdurl") or data.get("url")
-			media_type=data.get("media_type","image")
-			date=data.get("date",date_jour)
-			credit=data.get("copyright","NASA/APOD")	
 			
-			if media_type=="image":
-				await update.message.reply_photo(photo=url, caption=f"🌌 *{titre}* — {date}\n📸 {credit}\n\n{description}", parse_mode="Markdown")
-			elif media_type=="video":
-				await update.message.reply_text(f"🎥 *{titre}* — {date}\n🔗 {url}\n\n{description}", parse_mode="Markdown")
+			titre = data.get("title", "Sans titre")
+			description = data.get("explanation", "Pas de description")
+			url = data.get("hdurl") or data.get("url")
+			media_type = data.get("media_type", "image")
+			date = data.get("date", date_jour)
+			credit = data.get("copyright", "NASA/APOD")	
+			
+			if media_type == "image":
+				await update.message.reply_photo(
+					photo=url, 
+					caption=f"🌌 *{titre}* — {date}\n📸 {credit}\n\n{description}", 
+					parse_mode="Markdown"
+				)
+			elif media_type == "video":
+				await update.message.reply_text(
+					f"🎥 *{titre}* — {date}\n🔗 {url}\n\n{description}", 
+					parse_mode="Markdown"
+				)
 			else:
-				await update.message.reply_text("Type de video inconnu\n")	
+				await update.message.reply_text("Type de média inconnu\n")	
+				
 		except Exception as e:
-			print(f"Erreur de recuperation APOD: {e}")
-			await update.message.reply_text("Erreur de recuperation des donnees astronomiques.") 		
+			print(f"Erreur de récupération APOD: {e}")
+			await update.message.reply_text("Erreur de récupération des données astronomiques.") 		
+	
 	else:	
-		astre=" ".join(context.args).lower()
-		await update.message.reply_text("🌕🌌Travail en cours....")	
-		astre=astre.lower()
-		lien=f"https://api.le-systeme-solaire.net/rest/bodies/{astre}"
+		astre = " ".join(context.args).lower()
+		await update.message.reply_text("🌕🌌 Travail en cours....")	
+		
+		lien = f"https://api.le-systeme-solaire.net/rest/bodies/{astre}"
+		
 		try:
 			await update.message.reply_text(f"🔭 Récupération des informations sur {astre}...")
+			
 			async with aiohttp.ClientSession() as session:
 				async with session.get(lien) as response:
 					print("Status HTTP:", response.status)
+					
+					if response.status != 200:
+						await update.message.reply_text(f"Impossible de trouver l'astre '{astre}'.")
+						return
+					
 					data = await response.json()
 					print("Réponse JSON:", data)
-					texte = await response.text()
-					print("Réponse brute:", texte[:200])
-					if response.status != 200 or "englishName"not in data:
-						await update.message.reply_text("Impossible de récupérer l image.")
+					
+					if "englishName" not in data:
+						await update.message.reply_text(f"Aucune information trouvée pour '{astre}'.")
 						return
 		
-			nom=data.get("englishName","Inconnu")
-			type_astre=data.get("bodyType","Inconnu")
-			gravite=data.get("gravity","n.c.")
-			masse=data.get("mass",{}).get("massValue","n.c.")
-			masse_exp=data.get("mass",{}).get("massExponent","")	
-			rayon=data.get("meanRadius","n.c.")
-			perihelie=data.get("perihelion","n.c.")
-			aphelie=data.get("aphelion","n.c.")	
+			nom = data.get("englishName", "Inconnu")
+			type_astre = data.get("bodyType", "Inconnu")
+			gravite = data.get("gravity", "n.c.")
+			masse = data.get("mass", {}).get("massValue", "n.c.")
+			masse_exp = data.get("mass", {}).get("massExponent", "")	
+			rayon = data.get("meanRadius", "n.c.")
+			perihelie = data.get("perihelion", "n.c.")
+			aphelie = data.get("aphelion", "n.c.")	
+			
 			texte = (
 				f"🌠 *{nom}* ({type_astre})\n\n"
 				f"🪶 Gravité : {gravite} m/s²\n"
 				f"🌍 Masse : {masse} ×10^{masse_exp} kg\n"
 				f"📏 Rayon moyen : {rayon} km\n"
 				f"☀️ Périhélie : {perihelie} km\n"
-				f"🌑 Aphhelie : {aphelie} km\n"
-    
+				f"🌑 Aphélie : {aphelie} km\n"
 			)
 			await update.message.reply_text(texte, parse_mode="Markdown")
+			
 		except Exception as e:
-			print(f"Erreur de recuperation des informations de l astre: {e}")
-			await update.message.reply_text("Erreur de recuperation des informations astronomiques.") 
-					        
+			print(f"Erreur de récupération des informations de l'astre: {e}")
+			await update.message.reply_text("Erreur de récupération des informations astronomiques.")
 # ------------------- Main -------------------
 
 def main():
