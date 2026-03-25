@@ -1,23 +1,33 @@
-# Utilise Python officiel comme image de base
+
+# ============================================
+# Dockerfile — Bot Telegram URANIUM
+# ============================================
+
+# Image de base Python légère
 FROM python:3.11-slim
 
-# Définir le répertoire de travail
+# Définir le répertoire de travail dans le conteneur
 WORKDIR /app
 
-# Copier uniquement les fichiers nécessaires
+# Copier d'abord requirements.txt pour profiter du cache Docker
 COPY requirements.txt .
 
-# Installer les dépendances Python
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+# Installer les dépendances système nécessaires
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copier tout le code source (sauf ce qui est dans .dockerignore)
+# Installer les dépendances Python
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Télécharger les données TextBlob (nécessaire pour l'analyse de sentiment)
+RUN python -m textblob.download_corpora
+
+# Copier tout le code source dans le conteneur
 COPY . .
 
-# Définir la variable d'environnement pour que python trouve le fichier .env
-ENV DOTENV_PATH=/app/.env
+# ⚠️ Ne pas exposer de port : ce bot tourne en mode polling, pas en serveur web
 
-# Commande pour démarrer le bot
-# Remplace 'bbot.py' par le nom exact de ton fichier principal
-CMD ["python3", "bbot.py"]
-
+# Lancer le bot
+CMD ["python", "bot_telegram_corrige.py"]

@@ -8,3 +8,4 @@ google-genai
 nest-asyncio
 textblob
 deep-translator
+google-generativeai
