@@ -26,6 +26,7 @@ from deep_translator import GoogleTranslator
 # load_dotenv() cherche automatiquement un .env dans le dossier courant.
 # Sur Railway/Render, les variables sont injectées directement sans fichier .env.
 load_dotenv()
+print("DEBUG TOKEN =", os.getenv("TOKEN"))
 print("💡 Chargement des variables d'environnement...")
 
 # ✅ CORRECTION 2 : Suppression du suffixe "0" sur tous les os.getenv().
