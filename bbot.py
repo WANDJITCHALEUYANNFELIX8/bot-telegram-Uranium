@@ -366,6 +366,8 @@ async def exp(update, context):
 
 
 async def bonjour(update, context):
+    if not update.message or not update.message.text:
+        return
     text = update.message.text.lower()
     bot_username = context.bot.username.lower()
 
