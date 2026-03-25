@@ -827,6 +827,19 @@ def main():
     # Ce MessageHandler gère les messages texte libres (sans commande), c'est correct.
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bonjour))
 
+    from aiohttp import web
+    import threading
+
+    def run_web():
+        async def handle(request):
+            return web.Response(text="OK")
+        app_web = web.Application()
+        app_web.router.add_get("/", handle)
+        web.run_app(app_web, port=int(os.environ.get("PORT", 8000)))
+
+# Lance le faux serveur dans un thread séparé
+    threading.Thread(target=run_web, daemon=True).start()
+    
     print("🤖 URANIUM en cours d'exécution....")
     app.run_polling()
 
