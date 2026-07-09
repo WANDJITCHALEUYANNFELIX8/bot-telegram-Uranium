@@ -1,42 +1,30 @@
-# Secrets et variables d'environnement
+# ============================================
+# .gitignore — Bot Telegram URANIUM
+# ============================================
+
+# Variables d'environnement — NE JAMAIS push sur GitHub !
 .env
 
-# Fichiers Python compilés / caches
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
+# Fichier des utilisateurs enregistrés (données locales)
+users.json
+users0.json
 
-# Virtualenv / environnements locaux
+# Fichiers Python compilés
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environnement virtuel
 venv/
 env/
 .venv/
-.ENV/
 
-# IDE / éditeur
-.vscode/
-.idea/
-*.sublime-project
-*.sublime-workspace
+# Fichiers générés par Gemini
+gemini_output*
 
-# Systèmes
+# Logs
+*.log
+
+# OS
 .DS_Store
 Thumbs.db
-
-# Logs, sorties et fichiers temporaires
-*.log
-nohup.out
-
-# Fichiers d'OS ou build
-coverage/
-dist/
-build/
-
-# Node (si tu utilises JS pour quelque chose)
-node_modules/
-
-# Ne PAS ignorer (exemples de fichiers à garder dans le repo)
-# Procfile
-# requirements.txt
-# bot.py
-

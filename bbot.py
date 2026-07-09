@@ -56,6 +56,25 @@ if os.path.exists(USERS_FILE):
         except:
             users = {}
 
+TODOS_FILE = "todos.json"
+EXPENSES_FILE = "expenses.json"
+
+def load_json_file(filepath):
+    if os.path.exists(filepath):
+        try:
+            with open(filepath, "r") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def save_json_file(filepath, data):
+    try:
+        with open(filepath, "w") as f:
+            json.dump(data, f, indent=4)
+    except Exception as e:
+        print(f"Error saving to {filepath}: {e}")
+
 # ------------------- Commandes -------------------
 async def save_binary_file(update, file_name, data):
     f = open(file_name, "wb")
@@ -276,7 +295,16 @@ async def man(update, context):
         "19. Entrez /traduire pour traduire un texte en une langue(en: anglais,fr:francais,es:espagnol,de:allemand,ja:japonais,it,ar,..)\n"
         "20. Entrez /convertir un montant en une autre monnaie\n\n"
         "21. Entrez /image pour generer une image a partir d'une description\n"
-        "22. Entrez /astro pour obtenir l image astrale du jour ou \n/astro nom_astre pour avoir les informations sur un astre. \n"
+        "22. Entrez /astro pour obtenir l image astrale du jour ou \n/astro nom_astre pour avoir les informations sur un astre. \n\n"
+        "📝 23. Gestion des tâches :\n"
+        "   - /add <tâche> : ajouter une tâche\n"
+        "   - /todo : voir la liste des tâches en cours\n"
+        "   - /done <num_tâche> : marquer une tâche comme terminée\n\n"
+        "💸 24. Gestion du budget :\n"
+        "   - /depense <montant> <catégorie> [desc] : enregistrer une dépense\n"
+        "   - /bilan : voir le bilan de vos dépenses\n\n"
+        "📰 25. Entrez /actuality pour les actualités internationales\n"
+        "   - /actuality <sujet> pour un sujet précis\n"
         "\n======Reserver a l'admin=====\n\n"
         "1. /broadcast pour envoyer un message a tous les utilisateurs"
     )
@@ -365,8 +393,102 @@ async def exp(update, context):
         await update.message.reply_text("Erreur: entrez deux nombres valides.")
 
 
+async def handle_document(update, context):
+    document = update.message.document
+    if not document:
+        return
+        
+    await update.message.reply_text("📥 Téléchargement du fichier en cours...")
+    
+    try:
+        tg_file = await context.bot.get_file(document.file_id)
+        
+        file_name = document.file_name or "temp_file"
+        temp_dir = "/tmp" if os.path.exists("/tmp") else "."
+        file_path = os.path.join(temp_dir, file_name)
+        
+        await tg_file.download_to_drive(file_path)
+        
+        context.user_data['quiz_file_path'] = file_path
+        context.user_data['quiz_file_mime'] = document.mime_type
+        context.user_data['waiting_for_quiz_questions'] = True
+        
+        await update.message.reply_text(
+            f"📄 Fichier '{file_name}' reçu avec succès !\n"
+            "Combien de questions souhaitez-vous pour le quiz ? (Entrez un nombre entre 1 et 20)"
+        )
+    except Exception as e:
+        print(f"Erreur de téléchargement du fichier: {e}")
+        await update.message.reply_text(f"❌ Impossible de télécharger le fichier : {e}")
+
+
+async def generate_quiz(update, context):
+    text = update.message.text.strip()
+    
+    try:
+        num_questions = int(text)
+        if num_questions < 1 or num_questions > 20:
+            await update.message.reply_text("⚠️ Veuillez entrer un nombre raisonnable de questions (entre 1 et 20).")
+            return
+    except ValueError:
+        await update.message.reply_text("❌ Veuillez entrer un nombre valide (ex: 5).")
+        return
+        
+    context.user_data['waiting_for_quiz_questions'] = False
+    
+    file_path = context.user_data.get('quiz_file_path')
+    
+    if not file_path or not os.path.exists(file_path):
+        await update.message.reply_text("❌ Erreur: Le fichier n'a pas été trouvé. Veuillez téléverser à nouveau le fichier.")
+        return
+        
+    await update.message.reply_text(f"🧠 Génération d'un quiz de {num_questions} questions en cours...")
+    await update.message.chat.send_action(action=ChatAction.TYPING)
+    
+    try:
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        uploaded_file = client.files.upload(file=file_path)
+        
+        prompt = (
+            f"Génère un quiz éducatif complet de exactement {num_questions} questions basées uniquement sur le contenu du document fourni.\n"
+            "Chaque question doit être au format QCM (Question à Choix Multiples) avec 3 ou 4 options (A, B, C, D) et indiquer la bonne réponse à la fin de chaque question.\n"
+            "Reste en français, soit clair, précis et éducatif."
+        )
+        
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[uploaded_file, prompt]
+        )
+        
+        try:
+            client.files.delete(name=uploaded_file.name)
+        except Exception as de:
+            print(f"Error deleting file from Gemini: {de}")
+            
+        try:
+            os.remove(file_path)
+        except Exception as le:
+            print(f"Error deleting local file: {le}")
+            
+        quiz_output = response.text.strip()
+        
+        if len(quiz_output) > 4000:
+            for chunk in [quiz_output[i:i+4000] for i in range(0, len(quiz_output), 4000)]:
+                await update.message.reply_text(chunk)
+        else:
+            await update.message.reply_text(quiz_output)
+            
+    except Exception as e:
+        print(f"Erreur lors de la génération du quiz: {e}")
+        await update.message.reply_text(f"⚠️ Une erreur est survenue lors de la génération du quiz : {e}")
+
+
 async def bonjour(update, context):
     if not update.message or not update.message.text:
+        return
+        
+    if context.user_data and context.user_data.get('waiting_for_quiz_questions'):
+        await generate_quiz(update, context)
         return
     text = update.message.text.lower()
     bot_username = context.bot.username.lower()
@@ -650,13 +772,22 @@ async def image(update, context):
     await update.message.reply_text(f"🎨 Création de l'image pour : {prompt}")
 
     try:
-        lien = "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5"
+        # ✅ Nouveau point de terminaison Hugging Face Router
+        lien = "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0"
         headers = {"Authorization": f"Bearer {HF_API}"}
         payload = {"inputs": prompt, "options": {"wait_for_model": True}}
 
         async with aiohttp.ClientSession() as session:
             async with session.post(lien, headers=headers, json=payload) as response:
                 print("Status HTTP:", response.status)
+
+                if response.status == 403:
+                    await update.message.reply_text(
+                        "⚠️ Erreur de permission Hugging Face.\n"
+                        "Veuillez vous assurer que votre jeton (HF_API) a la permission "
+                        "\"Make calls to Inference Providers\" activée dans vos paramètres Hugging Face (https://huggingface.co/settings/tokens)."
+                    )
+                    return
 
                 if response.status != 200:
                     error_text = await response.text()
@@ -705,7 +836,9 @@ async def image(update, context):
         )
 
 
+
 async def astro(update, context):
+    import html
     if not context.args:
         try:
             date_jour = datetime.now().strftime("%Y-%m-%d")
@@ -728,16 +861,21 @@ async def astro(update, context):
             date = data.get("date", date_jour)
             credit = data.get("copyright", "NASA/APOD")
 
+            # Limiter la longueur de la description pour ne pas dépasser la limite de 1024 caractères de Telegram
+            max_desc_len = 700
+            if len(description) > max_desc_len:
+                description = description[:max_desc_len] + "..."
+
             if media_type == "image":
                 await update.message.reply_photo(
                     photo=url,
-                    caption=f"🌌 *{titre}* — {date}\n📸 {credit}\n\n{description}",
-                    parse_mode="Markdown"
+                    caption=f"🌌 <b>{html.escape(titre)}</b> — {html.escape(date)}\n📸 {html.escape(credit)}\n\n{html.escape(description)}",
+                    parse_mode="HTML"
                 )
             elif media_type == "video":
                 await update.message.reply_text(
-                    f"🎥 *{titre}* — {date}\n🔗 {url}\n\n{description}",
-                    parse_mode="Markdown"
+                    f"🎥 <b>{html.escape(titre)}</b> — {html.escape(date)}\n🔗 {html.escape(url)}\n\n{html.escape(description)}",
+                    parse_mode="HTML"
                 )
             else:
                 await update.message.reply_text("Type de média inconnu\n")
@@ -777,23 +915,209 @@ async def astro(update, context):
             aphelie = data.get("aphelion", "n.c.")
 
             texte = (
-                f"🌠 *{nom}* ({type_astre})\n\n"
-                f"🪶 Gravité : {gravite} m/s²\n"
-                f"🌍 Masse : {masse} ×10^{masse_exp} kg\n"
-                f"📏 Rayon moyen : {rayon} km\n"
-                f"☀️ Périhélie : {perihelie} km\n"
-                f"🌑 Aphélie : {aphelie} km\n"
+                f"🌠 <b>{html.escape(nom)}</b> ({html.escape(type_astre)})\n\n"
+                f"🪶 Gravité : {html.escape(str(gravite))} m/s²\n"
+                f"🌍 Masse : {html.escape(str(masse))} ×10<sup>{html.escape(str(masse_exp))}</sup> kg\n"
+                f"📏 Rayon moyen : {html.escape(str(rayon))} km\n"
+                f"☀️ Périhélie : {html.escape(str(perihelie))} km\n"
+                f"🌑 Aphélie : {html.escape(str(aphelie))} km\n"
             )
-            await update.message.reply_text(texte, parse_mode="Markdown")
+            await update.message.reply_text(texte, parse_mode="HTML")
 
         except Exception as e:
             print(f"Erreur de récupération des informations de l'astre: {e}")
             await update.message.reply_text("Erreur de récupération des informations astronomiques.")
 
 
+# ------------------- Gestion de Tâches & Dépenses -------------------
+
+async def add_task(update, context):
+    user_id = str(update.message.from_user.id)
+    if not context.args:
+        await update.message.reply_text("💡 Utilisation : /add <nom de la tâche>")
+        return
+    
+    task_text = " ".join(context.args)
+    todos = load_json_file(TODOS_FILE)
+    
+    if user_id not in todos:
+        todos[user_id] = []
+        
+    # Génération d'un ID unique
+    task_id = 1
+    if todos[user_id]:
+        task_id = max(t.get("id", 0) for t in todos[user_id]) + 1
+        
+    todos[user_id].append({
+        "id": task_id,
+        "task": task_text,
+        "done": False
+    })
+    
+    save_json_file(TODOS_FILE, todos)
+    await update.message.reply_text(f"✅ Tâche ajoutée [{task_id}] : {task_text}")
+
+
+async def list_tasks(update, context):
+    user_id = str(update.message.from_user.id)
+    todos = load_json_file(TODOS_FILE)
+    
+    user_todos = todos.get(user_id, [])
+    active_todos = [t for t in user_todos if not t.get("done", False)]
+    
+    if not active_todos:
+        await update.message.reply_text("🎉 Félicitations ! Vous n'avez aucune tâche en cours.")
+        return
+        
+    msg = "📋 *Vos tâches en cours :*\n\n"
+    for t in active_todos:
+        msg += f"🔹 [{t['id']}] {t['task']}\n"
+    
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+
+async def done_task(update, context):
+    user_id = str(update.message.from_user.id)
+    if not context.args:
+        await update.message.reply_text("💡 Utilisation : /done <numéro de la tâche>")
+        return
+        
+    try:
+        task_id = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("❌ Veuillez entrer un numéro de tâche valide.")
+        return
+        
+    todos = load_json_file(TODOS_FILE)
+    user_todos = todos.get(user_id, [])
+    
+    found = False
+    for t in user_todos:
+        if t.get("id") == task_id:
+            t["done"] = True
+            found = True
+            task_text = t["task"]
+            break
+            
+    if found:
+        save_json_file(TODOS_FILE, todos)
+        await update.message.reply_text(f"🎉 Tâche complétée [{task_id}] : {task_text}")
+    else:
+        await update.message.reply_text(f"❌ Aucune tâche trouvée avec le numéro {task_id}.")
+
+
+async def add_expense(update, context):
+    user_id = str(update.message.from_user.id)
+    if len(context.args) < 2:
+        await update.message.reply_text("💡 Utilisation : /depense <montant> <catégorie> [description]")
+        return
+        
+    try:
+        amount = float(context.args[0].replace(",", "."))
+    except ValueError:
+        await update.message.reply_text("❌ Montant invalide. Exemple : /depense 15 repas")
+        return
+        
+    category = context.args[1].lower()
+    description = " ".join(context.args[2:]) if len(context.args) > 2 else ""
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    
+    expenses = load_json_file(EXPENSES_FILE)
+    if user_id not in expenses:
+        expenses[user_id] = []
+        
+    expenses[user_id].append({
+        "amount": amount,
+        "category": category,
+        "description": description,
+        "date": date_str
+    })
+    
+    save_json_file(EXPENSES_FILE, expenses)
+    
+    desc_msg = f" ({description})" if description else ""
+    await update.message.reply_text(f"💸 Dépense de {amount:.2f} € enregistrée dans *{category}*{desc_msg}.", parse_mode="Markdown")
+
+
+async def expense_summary(update, context):
+    user_id = str(update.message.from_user.id)
+    expenses = load_json_file(EXPENSES_FILE)
+    
+    user_expenses = expenses.get(user_id, [])
+    if not user_expenses:
+        await update.message.reply_text("📉 Aucune dépense enregistrée pour le moment.")
+        return
+        
+    categories = {}
+    total = 0.0
+    for exp in user_expenses:
+        cat = exp.get("category", "autre")
+        amt = exp.get("amount", 0.0)
+        categories[cat] = categories.get(cat, 0.0) + amt
+        total += amt
+        
+    msg = "💰 *Bilan de vos dépenses :*\n\n"
+    for cat, amt in sorted(categories.items(), key=lambda x: x[1], reverse=True):
+        percentage = (amt / total) * 100 if total > 0 else 0
+        msg += f"📁 *{cat.capitalize()}* : {amt:.2f} € ({percentage:.1f}%)\n"
+    
+    msg += f"\n💵 *Total général : {total:.2f} €*"
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+
+# ------------------- Actualité Internationale -------------------
+
+async def actuality(update, context):
+    topic = " ".join(context.args) if context.args else None
+
+    if topic:
+        prompt = (
+            f"Donne-moi un résumé détaillé des dernières actualités internationales sur le sujet \"{topic}\" "
+            f"des dernières 24 heures. "
+            "Présente 3 à 5 points clés, chacun avec un titre en gras, une explication concise et la source. "
+            "Réponds en français."
+        )
+        await update.message.reply_text(f"🔍 Recherche des actualités sur *{topic}*...", parse_mode="Markdown")
+    else:
+        prompt = (
+            "Donne-moi un résumé des 5 actualités internationales majeures des dernières 24 heures. "
+            "Pour chaque actualité, donne un titre en gras, un résumé de 2-3 phrases et la source. "
+            "Réponds en français."
+        )
+        await update.message.reply_text("📰 Récupération des actualités internationales...")
+
+    await update.message.chat.send_action(action=ChatAction.TYPING)
+
+    try:
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        google_search_tool = types.Tool(
+            google_search=types.GoogleSearch()
+        )
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                tools=[google_search_tool]
+            ),
+        )
+
+        news_text = response.text.strip()
+
+        if len(news_text) > 4000:
+            for chunk in [news_text[i:i+4000] for i in range(0, len(news_text), 4000)]:
+                await update.message.reply_text(chunk)
+        else:
+            await update.message.reply_text(news_text)
+
+    except Exception as e:
+        print(f"Erreur lors de la récupération des actualités: {e}")
+        await update.message.reply_text("⚠️ Impossible de récupérer les actualités pour le moment. Réessayez plus tard.")
+
+
 # ------------------- Main -------------------
 
-def main():
+def create_app():
     app = Application.builder().token(TOKEN).post_init(signal).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("man", man))
@@ -822,24 +1146,22 @@ def main():
     app.add_handler(CommandHandler("broadcast", broadcast))
     app.add_handler(CommandHandler("image", image))
     app.add_handler(CommandHandler("astro", astro))
+    app.add_handler(CommandHandler("add", add_task))
+    app.add_handler(CommandHandler("todo", list_tasks))
+    app.add_handler(CommandHandler("done", done_task))
+    app.add_handler(CommandHandler("depense", add_expense))
+    app.add_handler(CommandHandler("bilan", expense_summary))
+    app.add_handler(CommandHandler("actuality", actuality))
+    app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
     # ✅ CORRECTION 5 : Suppression du double handler "bonjour".
     # Le CommandHandler("bonjour") ci-dessus gère déjà /bonjour.
     # Ce MessageHandler gère les messages texte libres (sans commande), c'est correct.
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bonjour))
+    return app
 
-    from aiohttp import web
-    import threading
 
-    def run_web():
-        async def handle(request):
-            return web.Response(text="OK")
-        app_web = web.Application()
-        app_web.router.add_get("/", handle)
-        web.run_app(app_web, port=int(os.environ.get("PORT", 8000)))
-
-# Lance le faux serveur dans un thread séparé
-    threading.Thread(target=run_web, daemon=True).start()
-    
+def main():
+    app = create_app()
     print("🤖 URANIUM en cours d'exécution....")
     app.run_polling()
 

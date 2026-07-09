@@ -30,4 +30,4 @@ COPY . .
 # ⚠️ Ne pas exposer de port : ce bot tourne en mode polling, pas en serveur web
 
 # Lancer le bot
-CMD ["python", "bot_telegram_corrige.py"]
+CMD ["python", "bbot.py"]
